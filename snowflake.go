@@ -1,4 +1,18 @@
-// Package snowflake provides a very simple Twitter snowflake generator and parser.
+//Package snowflake provides a very simple Twitter snowflake generator and parser.
+//
+//Updated by butaixianran:
+//Split 10 bits of Nodes into: 5 bit for IDCs(max to 32 IDCs), 7 bit for nodes(max to 128 nodes)
+//An IDC can be power down, so better use some IDCs than setting too many nodes into one.
+//
+//Decrease 12 bits of Step(max to 4096) to 8 bit (max to 256 in 1 ms)
+//As we tested with following code, it actually only need about 3 step\sequence numbers in 1 ms.
+// for i := 0; i < 10; i++ {
+// 	fmt.Printf("ID       : %s\n", node.Generate().Base2())
+// }
+//So, 256 is way much more than enough for a node.
+//
+//Increase 41 bits of Time Bits(max to 69 years) to 43 bits(max to 278 years)
+
 package snowflake
 
 import (
@@ -14,23 +28,19 @@ import (
 var (
 	// Epoch is set to the twitter snowflake epoch of Nov 04 2010 01:42:54 UTC in milliseconds
 	// You may customize this to set a different epoch for your application.
-	Epoch int64 = 1288834974657
+	// Epoch int64 = 1288834974657
+	// butaixianran: Set start time to 2021-02-06 06:07:42 in milliseconds
+	Epoch int64 = 1612562862000
 
+	// IDCBits holds the number of bits to use for IDC
 	// NodeBits holds the number of bits to use for Node
-	// Remember, you have a total 22 bits to share between Node/Step
-	NodeBits uint8 = 10
+	// Remember, you have a total 20 bits to use with IDC+Node+Step
+	IDCBits  uint8 = 5
+	NodeBits uint8 = 7
 
 	// StepBits holds the number of bits to use for Step
-	// Remember, you have a total 22 bits to share between Node/Step
-	StepBits uint8 = 12
-
-	// DEPRECATED: the below four variables will be removed in a future release.
-	mu        sync.Mutex
-	nodeMax   int64 = -1 ^ (-1 << NodeBits)
-	nodeMask        = nodeMax << StepBits
-	stepMask  int64 = -1 ^ (-1 << StepBits)
-	timeShift       = NodeBits + StepBits
-	nodeShift       = StepBits
+	// Remember, you have a total 20 bits to use with IDC+Node+Step
+	StepBits uint8 = 8
 )
 
 const encodeBase32Map = "ybndrfg8ejkmcpqxot1uwisza345h769"
@@ -75,19 +85,23 @@ func init() {
 	}
 }
 
-// A Node struct holds the basic information needed for a snowflake generator
-// node
-type Node struct {
+// A NodeInfo struct holds the basic information needed for a snowflake generator
+// nodeInfo
+type NodeInfo struct {
 	mu    sync.Mutex
 	epoch time.Time
 	time  int64
+	idc   int64
 	node  int64
 	step  int64
 
+	idcMax    int64
+	idcMask   int64
 	nodeMax   int64
 	nodeMask  int64
 	stepMask  int64
 	timeShift uint8
+	idcShift  uint8
 	nodeShift uint8
 }
 
@@ -97,31 +111,30 @@ type ID int64
 
 // NewNode returns a new snowflake node that can be used to generate snowflake
 // IDs
-func NewNode(node int64) (*Node, error) {
+func NewNode(idc int64, node int64) (*NodeInfo, error) {
 
 	// re-calc in case custom NodeBits or StepBits were set
-	// DEPRECATED: the below block will be removed in a future release.
-	mu.Lock()
-	nodeMax = -1 ^ (-1 << NodeBits)
-	nodeMask = nodeMax << StepBits
-	stepMask = -1 ^ (-1 << StepBits)
-	timeShift = NodeBits + StepBits
-	nodeShift = StepBits
-	mu.Unlock()
-
-	n := Node{}
+	n := NodeInfo{}
+	n.idc = idc
 	n.node = node
 	n.nodeMax = -1 ^ (-1 << NodeBits)
 	n.nodeMask = n.nodeMax << StepBits
+	n.idcMax = -1 ^ (-1 << IDCBits)
+	n.idcMask = n.idcMask << NodeBits
 	n.stepMask = -1 ^ (-1 << StepBits)
-	n.timeShift = NodeBits + StepBits
+	n.timeShift = IDCBits + NodeBits + StepBits
+	n.idcShift = NodeBits + StepBits
 	n.nodeShift = StepBits
+
+	if n.idc < 0 || n.idc > n.idcMax {
+		return nil, errors.New("IDC number must be between 0 and " + strconv.FormatInt(n.idcMax, 10))
+	}
 
 	if n.node < 0 || n.node > n.nodeMax {
 		return nil, errors.New("Node number must be between 0 and " + strconv.FormatInt(n.nodeMax, 10))
 	}
 
-	var curTime = time.Now()
+	curTime := time.Now()
 	// add time.Duration to curTime to make sure we use the monotonic clock if available
 	n.epoch = curTime.Add(time.Unix(Epoch/1000, (Epoch%1000)*1000000).Sub(curTime))
 
@@ -132,7 +145,7 @@ func NewNode(node int64) (*Node, error) {
 // To help guarantee uniqueness
 // - Make sure your system is keeping accurate system time
 // - Make sure you never have multiple nodes running with the same node ID
-func (n *Node) Generate() ID {
+func (n *NodeInfo) Generate() ID {
 
 	n.mu.Lock()
 
@@ -153,6 +166,7 @@ func (n *Node) Generate() ID {
 	n.time = now
 
 	r := ID((now)<<n.timeShift |
+		(n.idc << n.idcShift) |
 		(n.node << n.nodeShift) |
 		(n.step),
 	)
@@ -323,21 +337,23 @@ func ParseIntBytes(id [8]byte) ID {
 }
 
 // Time returns an int64 unix timestamp in milliseconds of the snowflake ID time
-// DEPRECATED: the below function will be removed in a future release.
 func (f ID) Time() int64 {
-	return (int64(f) >> timeShift) + Epoch
+	return (int64(f) >> (IDCBits + NodeBits + StepBits)) + Epoch
+}
+
+// IDC returns an int64 of the snowflake ID IDC number
+func (f ID) IDC() int64 {
+	return (int64(f) >> (NodeBits + StepBits)) & (-1 ^ (-1 << IDCBits))
 }
 
 // Node returns an int64 of the snowflake ID node number
-// DEPRECATED: the below function will be removed in a future release.
 func (f ID) Node() int64 {
-	return int64(f) & nodeMask >> nodeShift
+	return (int64(f) >> StepBits) & (-1 ^ (-1 << NodeBits))
 }
 
 // Step returns an int64 of the snowflake step (or sequence) number
-// DEPRECATED: the below function will be removed in a future release.
 func (f ID) Step() int64 {
-	return int64(f) & stepMask
+	return int64(f) & (-1 ^ (-1 << StepBits))
 }
 
 // MarshalJSON returns a json byte array string of the snowflake ID.
