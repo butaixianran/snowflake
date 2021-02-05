@@ -1,3 +1,20 @@
+Update
+====
+* Split 10 bits of Nodes into: 5 bit for IDCs(max to 32 IDCs), 7 bit for nodes(max to 128 nodes)  
+An IDC can be power down, so better use some IDCs than setting too many nodes into one.
+
+* Decrease 12 bits of Step/Sequence(max to 4096) to 8 bit (max to 256 in 1 ms)  
+As we tested with following code, it actually only need about 3 step\sequence numbers in 1 ms.
+```go
+ for i := 0; i < 10; i++ {
+   fmt.Printf("ID       : %s\n", node.Generate().Base2())
+}
+```
+In real case, your service gonna do a lot of things after getting an ID. So, 256 is more than enough for a node.
+
+* Increase 41 bits of Time Bits(max to 69 years) to 43 bits(max to 278 years)
+
+
 snowflake
 ====
 [![GoDoc](https://godoc.org/github.com/bwmarrin/snowflake?status.svg)](https://godoc.org/github.com/bwmarrin/snowflake) [![Go report](http://goreportcard.com/badge/bwmarrin/snowflake)](http://goreportcard.com/report/bwmarrin/snowflake) [![Coverage](http://gocover.io/_badge/github.com/bwmarrin/snowflake)](https://gocover.io/github.com/bwmarrin/snowflake) [![Build Status](https://travis-ci.org/bwmarrin/snowflake.svg?branch=master)](https://travis-ci.org/bwmarrin/snowflake) [![Discord Gophers](https://img.shields.io/badge/Discord%20Gophers-%23info-blue.svg)](https://discord.gg/0f1SbxBZjYq9jLBk)
@@ -19,18 +36,20 @@ future will strongly avoid API changes to existing functions.
 ### ID Format
 By default, the ID format follows the original Twitter snowflake format.
 * The ID as a whole is a 63 bit integer stored in an int64
-* 41 bits are used to store a timestamp with millisecond precision, using a custom epoch.
-* 10 bits are used to store a node id - a range from 0 through 1023.
-* 12 bits are used to store a sequence number - a range from 0 through 4095.
+* 43 bits are used to store a timestamp with millisecond precision, using a custom epoch.
+* 5 bits are used to store a idc id - a range from 0 through 31.
+* 7 bits are used to store a node id - a range from 0 through 127.
+* 8 bits are used to store a sequence number - a range from 0 through 255.
 
 ### Custom Format
-You can alter the number of bits used for the node id and step number (sequence)
-by setting the snowflake.NodeBits and snowflake.StepBits values.  Remember that
-There is a maximum of 22 bits available that can be shared between these two 
-values. You do not have to use all 22 bits.
+You can alter the number of bits used for the idc id, node id and step number (sequence)
+by setting the snowflake.IDCBits snowflake.NodeBits and snowflake.StepBits values.  
+For now, there is a maximum of 20 bits available that can be shared between these two 
+values. You can change that.
 
 ### Custom Epoch
 By default this package uses the Twitter Epoch of 1288834974657 or Nov 04 2010 01:42:54.
+I updated it to 1612562862000 or 2021-02-06 06:07:42 in milliseconds.
 You can set your own epoch value by setting snowflake.Epoch to a time in milliseconds
 to use as the epoch.
 
@@ -41,8 +60,9 @@ custom values you set will not be applied correctly.
 
 ### How it Works.
 Each time you generate an ID, it works, like this.
-* A timestamp with millisecond precision is stored using 41 bits of the ID.
-* Then the NodeID is added in subsequent bits.
+* A timestamp with millisecond precision is stored using 43 bits of the ID.
+* Then the IDC ID is added in subsequent bits.
+* Then the Node ID is added in subsequent bits.
 * Then the Sequence Number is added, starting at 0 and incrementing for each ID generated in the same millisecond. If you generate enough IDs in the same millisecond that the sequence would roll over or overfill then the generate function will pause until the next millisecond.
 
 The default Twitter format shown below.
@@ -51,8 +71,14 @@ The default Twitter format shown below.
 | 1 Bit Unused | 41 Bit Timestamp |  10 Bit NodeID  |   12 Bit Sequence ID |
 +--------------------------------------------------------------------------+
 ```
+My Updated format shown below.
+```
++---------------------------------------------------------------------------------------+
+| 1 Bit Unused | 43 Bit Timestamp |  5 Bit IDCID |  7 Bit NodeID  |   8 Bit Sequence ID |
++---------------------------------------------------------------------------------------+
+```
 
-Using the default settings, this allows for 4096 unique IDs to be generated every millisecond, per Node ID.
+Using the default settings, this allows for 256 unique IDs to be generated every millisecond, per Node.
 ## Getting Started
 
 ### Installing
@@ -61,7 +87,7 @@ This assumes you already have a working Go environment, if not please see
 [this page](https://golang.org/doc/install) first.
 
 ```sh
-go get github.com/bwmarrin/snowflake
+go get github.com/butaixianran/snowflake
 ```
 
 
@@ -86,13 +112,13 @@ package main
 import (
 	"fmt"
 
-	"github.com/bwmarrin/snowflake"
+	"github.com/butaixianran/snowflake"
 )
 
 func main() {
 
-	// Create a new Node with a Node number of 1
-	node, err := snowflake.NewNode(1)
+	// Create a new Node with a IDC number of 3 and a Node number of 1
+	node, err := snowflake.NewNode(3, 1)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -110,20 +136,28 @@ func main() {
 	// Print out the ID's timestamp
 	fmt.Printf("ID Time  : %d\n", id.Time())
 
+	// Print out the ID's idc number
+	fmt.Printf("ID IDC   : %d\n", id.IDC())
+
 	// Print out the ID's node number
 	fmt.Printf("ID Node  : %d\n", id.Node())
 
 	// Print out the ID's sequence number
 	fmt.Printf("ID Step  : %d\n", id.Step())
 
-  // Generate and print, all in one.
-  fmt.Printf("ID       : %d\n", node.Generate().Int64())
+	// Generate and print, all in one.
+	fmt.Printf("ID       : %d\n", node.Generate().Int64())
+  
+	// Or do it with a loop
+	for i := 0; i < 10; i++ {
+		fmt.Printf("ID       : %s\n", node.Generate().Base2())
+	}
 }
 ```
 
 ### Performance
 
-With default settings, this snowflake generator should be sufficiently fast 
+With twitter's default settings, this snowflake generator should be sufficiently fast 
 enough on most systems to generate 4096 unique ID's per millisecond. This is 
 the maximum that the snowflake ID format supports. That is, around 243-244 
 nanoseconds per operation. 
