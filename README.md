@@ -1,12 +1,12 @@
 Update
 ====
-* Split 10 bits of Nodes into: 5 bit for IDCs(max to 32 IDCs), 7 bit for nodes(max to 128 nodes)  
+* Split 10 bits of Nodes into: 5 bits for IDCs(max to 32 IDCs), 7 bits for nodes(max to 128 nodes)  
 An IDC can be power down, so better use some IDCs than setting too many nodes into one.
 
 * Decrease 12 bits of Step/Sequence(max to 4096) to 8 bit (max to 256 in 1 ms)  
 As we tested with following code, it actually only need about 3 step\sequence numbers in 1 ms.
 ```go
- for i := 0; i < 10; i++ {
+for i := 0; i < 10; i++ {
    fmt.Printf("ID       : %s\n", node.Generate().Base2())
 }
 ```
