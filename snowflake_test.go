@@ -11,12 +11,12 @@ import (
 
 func TestNewNode(t *testing.T) {
 
-	_, err := NewNode(0)
+	_, err := NewNode(3, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
 
-	_, err = NewNode(5000)
+	_, err = NewNode(0, 5000)
 	if err == nil {
 		t.Fatalf("no error creating NewNode, %s", err)
 	}
@@ -27,7 +27,7 @@ func TestNewNode(t *testing.T) {
 // would be good to later enhance this with more smarts
 func TestGenerateDuplicateID(t *testing.T) {
 
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 
 	var x, y ID
 	for i := 0; i < 1000000; i++ {
@@ -42,12 +42,12 @@ func TestGenerateDuplicateID(t *testing.T) {
 // I feel like there's probably a better way
 func TestRace(t *testing.T) {
 
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 
 	go func() {
 		for i := 0; i < 1000000000; i++ {
 
-			NewNode(1)
+			NewNode(3, 1)
 		}
 	}()
 
@@ -63,7 +63,7 @@ func TestRace(t *testing.T) {
 // We should have funcs here to test conversion both ways for everything
 
 func TestPrintAll(t *testing.T) {
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -83,7 +83,7 @@ func TestPrintAll(t *testing.T) {
 }
 
 func TestInt64(t *testing.T) {
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -105,7 +105,7 @@ func TestInt64(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -136,7 +136,7 @@ func TestString(t *testing.T) {
 }
 
 func TestBase2(t *testing.T) {
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -167,7 +167,7 @@ func TestBase2(t *testing.T) {
 
 func TestBase32(t *testing.T) {
 
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -187,7 +187,7 @@ func TestBase32(t *testing.T) {
 }
 
 func TestBase36(t *testing.T) {
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -218,7 +218,7 @@ func TestBase36(t *testing.T) {
 
 func TestBase58(t *testing.T) {
 
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -238,7 +238,7 @@ func TestBase58(t *testing.T) {
 }
 
 func TestBase64(t *testing.T) {
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -268,7 +268,7 @@ func TestBase64(t *testing.T) {
 }
 
 func TestBytes(t *testing.T) {
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -298,7 +298,7 @@ func TestBytes(t *testing.T) {
 }
 
 func TestIntBytes(t *testing.T) {
-	node, err := NewNode(0)
+	node, err := NewNode(0, 0)
 	if err != nil {
 		t.Fatalf("error creating NewNode, %s", err)
 	}
@@ -374,7 +374,7 @@ func TestUnmarshalJSON(t *testing.T) {
 
 func BenchmarkParseBase32(b *testing.B) {
 
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 	sf := node.Generate()
 	b32i := sf.Base32()
 
@@ -387,7 +387,7 @@ func BenchmarkParseBase32(b *testing.B) {
 }
 func BenchmarkBase32(b *testing.B) {
 
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 	sf := node.Generate()
 
 	b.ReportAllocs()
@@ -399,7 +399,7 @@ func BenchmarkBase32(b *testing.B) {
 }
 func BenchmarkParseBase58(b *testing.B) {
 
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 	sf := node.Generate()
 	b58 := sf.Base58()
 
@@ -412,7 +412,7 @@ func BenchmarkParseBase58(b *testing.B) {
 }
 func BenchmarkBase58(b *testing.B) {
 
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 	sf := node.Generate()
 
 	b.ReportAllocs()
@@ -424,7 +424,7 @@ func BenchmarkBase58(b *testing.B) {
 }
 func BenchmarkGenerate(b *testing.B) {
 
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 
 	b.ReportAllocs()
 
@@ -438,7 +438,7 @@ func BenchmarkGenerateMaxSequence(b *testing.B) {
 
 	NodeBits = 1
 	StepBits = 21
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 
 	b.ReportAllocs()
 
@@ -450,7 +450,7 @@ func BenchmarkGenerateMaxSequence(b *testing.B) {
 
 func BenchmarkUnmarshal(b *testing.B) {
 	// Generate the ID to unmarshal
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 	id := node.Generate()
 	bytes, _ := id.MarshalJSON()
 
@@ -465,7 +465,7 @@ func BenchmarkUnmarshal(b *testing.B) {
 
 func BenchmarkMarshal(b *testing.B) {
 	// Generate the ID to marshal
-	node, _ := NewNode(1)
+	node, _ := NewNode(0, 1)
 	id := node.Generate()
 
 	b.ReportAllocs()
